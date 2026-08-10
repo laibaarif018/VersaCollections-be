@@ -12,10 +12,10 @@ export class OrderItem {
   @Prop({ type: Types.ObjectId, ref: 'Product', required: true }) product!: Types.ObjectId;
   @Prop({ required: true }) name!: string;
   @Prop({ required: true }) slug!: string;
-  @Prop({ default: null }) image!: string | null;
+  @Prop({ type: String, default: null }) image!: string | null;
   @Prop({ required: true }) unitPrice!: number;
   @Prop({ required: true }) quantity!: number;
-  @Prop({ default: null }) size!: string | null;
+  @Prop({ type: String, default: null }) size!: string | null;
   @Prop({ required: true }) lineTotal!: number;
 }
 export const OrderItemSchema = SchemaFactory.createForClass(OrderItem);

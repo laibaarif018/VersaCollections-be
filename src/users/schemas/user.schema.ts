@@ -40,7 +40,7 @@ export class User {
   addresses!: Address[];
 
   /** bcrypt hash of the live refresh token; cleared on logout. */
-  @Prop({ default: null })
+  @Prop({ type: String, default: null })
   refreshTokenHash!: string | null;
 }
 

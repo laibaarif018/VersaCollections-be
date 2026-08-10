@@ -34,7 +34,7 @@ export class Product {
   @Prop({ required: true, min: 0 })
   price!: number;
 
-  @Prop({ default: null })
+  @Prop({ type: Number, default: null })
   compareAtPrice!: number | null;
 
   @Prop({ default: 'USD' })
