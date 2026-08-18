@@ -1,6 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
-import { MembershipTier } from '../../common/enums';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateProfileDto {
   @ApiPropertyOptional()
@@ -16,10 +15,4 @@ export class UpdateProfileDto {
   @MinLength(1)
   @MaxLength(60)
   lastName?: string;
-}
-
-export class UpdateMembershipTierDto {
-  @ApiPropertyOptional({ enum: MembershipTier })
-  @IsEnum(MembershipTier)
-  membershipTier!: MembershipTier;
 }

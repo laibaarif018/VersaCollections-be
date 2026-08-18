@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import { MembershipTier, Role } from '../../common/enums';
+import { Role } from '../../common/enums';
 import { applyJsonTransform } from '../../common/schema-transform';
 
 @Schema({ _id: false })
@@ -33,18 +33,36 @@ export class User {
   @Prop({ type: String, enum: Role, default: Role.Customer, index: true })
   role!: Role;
 
-  @Prop({ type: String, enum: MembershipTier, default: MembershipTier.None })
-  membershipTier!: MembershipTier;
-
   @Prop({ type: [AddressSchema], default: [] })
   addresses!: Address[];
 
   /** bcrypt hash of the live refresh token; cleared on logout. */
   @Prop({ type: String, default: null })
   refreshTokenHash!: string | null;
+
+  /**
+   * bcrypt hash of the one-time code emailed to authorise a password change.
+   * Hashed rather than stored plainly so a database leak does not hand over a
+   * working credential, and cleared the moment it is used or superseded.
+   */
+  @Prop({ type: String, default: null })
+  passwordCodeHash!: string | null;
+
+  @Prop({ type: Date, default: null })
+  passwordCodeExpiresAt!: Date | null;
+
+  /** Guesses against the current code; the code dies once this runs out. */
+  @Prop({ default: 0 })
+  passwordCodeAttempts!: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
 
 // Never let the password or refresh hash escape through a JSON response.
-applyJsonTransform(UserSchema, ['passwordHash', 'refreshTokenHash']);
+applyJsonTransform(UserSchema, [
+  'passwordHash',
+  'refreshTokenHash',
+  'passwordCodeHash',
+  'passwordCodeExpiresAt',
+  'passwordCodeAttempts',
+]);

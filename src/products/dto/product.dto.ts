@@ -4,6 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsHexColor,
   IsInt,
   IsMongoId,
   IsOptional,
@@ -14,19 +15,69 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { ProductStatus } from '../../common/enums';
+import { ProductStatus, StitchType } from '../../common/enums';
 import { SLUG_PATTERN } from '../../categories/dto/category.dto';
 
 export class ProductImageDto {
-  @ApiProperty({ example: '/images/nocturne-tote.jpg' })
+  @ApiProperty({ example: '/uploads/6f1b….webp' })
   @IsString()
   @MaxLength(500)
   url!: string;
 
-  @ApiProperty({ example: 'The Nocturne tote in black calfskin, photographed on obsidian stone' })
+  @ApiProperty({ example: 'A embroidered lawn kurta photographed against plaster' })
   @IsString()
   @MaxLength(300)
   alt!: string;
+
+  @ApiPropertyOptional({ description: 'Cloudinary public id', example: 'versacollections/2026/_staging/abc' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  publicId?: string;
+}
+
+export class ProductColorDto {
+  @ApiProperty({ example: 'Ivory' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  name!: string;
+
+  @ApiProperty({ example: '#f3efe7' })
+  @IsHexColor()
+  hex!: string;
+}
+
+export class SizeChartRowDto {
+  @ApiProperty({ example: 'M' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(20)
+  size!: string;
+
+  @ApiPropertyOptional({ example: '38 in' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  chest?: string;
+
+  @ApiPropertyOptional({ example: '32 in' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  waist?: string;
+
+  @ApiPropertyOptional({ example: '42 in' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  length?: string;
+
+  @ApiPropertyOptional({ example: '23 in' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  sleeve?: string;
 }
 
 export class CreateProductDto {
@@ -36,7 +87,7 @@ export class CreateProductDto {
   @MaxLength(140)
   name!: string;
 
-  @ApiProperty({ example: 'nocturne-tote' })
+  @ApiProperty({ example: 'embroidered-lawn-kurta' })
   @IsString()
   @Matches(SLUG_PATTERN, { message: 'slug must be lowercase words separated by hyphens' })
   @MaxLength(140)
@@ -54,13 +105,13 @@ export class CreateProductDto {
   @MaxLength(4000)
   story?: string;
 
-  @ApiProperty({ description: 'Price in minor units (cents)', example: 289000 })
+  @ApiProperty({ description: 'Price in minor units (paisa)', example: 289000 })
   @Type(() => Number)
   @IsInt()
   @Min(0)
   price!: number;
 
-  @ApiPropertyOptional({ description: 'Was-price in minor units (cents)' })
+  @ApiPropertyOptional({ description: 'Was-price in minor units (paisa)' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -78,7 +129,7 @@ export class CreateProductDto {
   @IsMongoId()
   category!: string;
 
-  @ApiPropertyOptional({ description: 'Editorial line', example: 'Nocturne' })
+  @ApiPropertyOptional({ description: 'Editorial line', example: 'Sahar' })
   @IsOptional()
   @IsString()
   @MaxLength(80)
@@ -96,6 +147,31 @@ export class CreateProductDto {
   @IsString({ each: true })
   sizes?: string[];
 
+  @ApiPropertyOptional({ type: [ProductColorDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductColorDto)
+  colors?: ProductColorDto[];
+
+  @ApiPropertyOptional({ description: 'Cloth used', example: 'Lawn' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  fabric?: string;
+
+  @ApiPropertyOptional({ enum: StitchType })
+  @IsOptional()
+  @IsEnum(StitchType)
+  stitchType?: StitchType;
+
+  @ApiPropertyOptional({ type: [SizeChartRowDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SizeChartRowDto)
+  sizeChart?: SizeChartRowDto[];
+
   @ApiPropertyOptional({ default: 0 })
   @IsOptional()
   @Type(() => Number)
@@ -105,7 +181,6 @@ export class CreateProductDto {
 
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isFeatured?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isExclusive?: boolean;
-  @ApiPropertyOptional() @IsOptional() @IsBoolean() membershipOnly?: boolean;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()

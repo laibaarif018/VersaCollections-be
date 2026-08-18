@@ -1,19 +1,48 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
-import { ProductStatus } from '../../common/enums';
+import { ProductStatus, StitchType } from '../../common/enums';
 import { applyJsonTransform } from '../../common/schema-transform';
 
 @Schema({ _id: false })
 export class ProductImage {
   @Prop({ required: true }) url!: string;
   @Prop({ required: true }) alt!: string;
+  /**
+   * The Cloudinary public id, kept alongside the URL because moving or deleting
+   * an asset needs it, and recovering it by parsing a delivery URL is fragile —
+   * the version segment is optional and transformations may be embedded.
+   * Empty for anything predating Cloudinary.
+   */
+  @Prop({ default: '' }) publicId!: string;
 }
 export const ProductImageSchema = SchemaFactory.createForClass(ProductImage);
+
+/** A colourway offered for a garment; `hex` drives the swatch on the product page. */
+@Schema({ _id: false })
+export class ProductColor {
+  @Prop({ required: true, trim: true }) name!: string;
+  @Prop({ required: true, trim: true, lowercase: true }) hex!: string;
+}
+export const ProductColorSchema = SchemaFactory.createForClass(ProductColor);
+
+/**
+ * One row of the size guide. Measurements are stored as free text ("38 in",
+ * "96 cm") because they are copy for a shopper to read, never arithmetic.
+ */
+@Schema({ _id: false })
+export class SizeChartRow {
+  @Prop({ required: true, trim: true }) size!: string;
+  @Prop({ default: '', trim: true }) chest!: string;
+  @Prop({ default: '', trim: true }) waist!: string;
+  @Prop({ default: '', trim: true }) length!: string;
+  @Prop({ default: '', trim: true }) sleeve!: string;
+}
+export const SizeChartRowSchema = SchemaFactory.createForClass(SizeChartRow);
 
 export type ProductDocument = HydratedDocument<Product>;
 
 /**
- * Money is stored in minor units (cents) as integers throughout the API —
+ * Money is stored in minor units (paisa) as integers throughout the API —
  * floats and currency do not mix. The storefront formats on display.
  */
 @Schema({ timestamps: true })
@@ -37,7 +66,7 @@ export class Product {
   @Prop({ type: Number, default: null })
   compareAtPrice!: number | null;
 
-  @Prop({ default: 'USD' })
+  @Prop({ default: 'PKR' })
   currency!: string;
 
   @Prop({ type: [ProductImageSchema], default: [] })
@@ -56,6 +85,19 @@ export class Product {
   @Prop({ type: [String], default: [] })
   sizes!: string[];
 
+  @Prop({ type: [ProductColorSchema], default: [] })
+  colors!: ProductColor[];
+
+  /** e.g. "Lawn", "Chiffon", "Khaddar" — indexed so it can be filtered on later. */
+  @Prop({ default: '', trim: true, index: true })
+  fabric!: string;
+
+  @Prop({ type: String, enum: StitchType, default: StitchType.NotApplicable, index: true })
+  stitchType!: StitchType;
+
+  @Prop({ type: [SizeChartRowSchema], default: [] })
+  sizeChart!: SizeChartRow[];
+
   @Prop({ default: 0, min: 0 })
   stock!: number;
 
@@ -64,10 +106,6 @@ export class Product {
 
   @Prop({ default: false })
   isExclusive!: boolean;
-
-  /** Visible to everyone, but only purchasable by members. */
-  @Prop({ default: false })
-  membershipOnly!: boolean;
 
   @Prop({ type: [String], default: [], index: true })
   tags!: string[];

@@ -4,14 +4,13 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
 import { AuthUser } from '../../common/decorators/current-user.decorator';
-import { MembershipTier, Role } from '../../common/enums';
+import { Role } from '../../common/enums';
 import { ACCESS_COOKIE } from '../auth.constants';
 
 export interface JwtPayload {
   sub: string;
   email: string;
   role: Role;
-  tier: MembershipTier;
 }
 
 /** Reads the access token from the httpOnly cookie, falling back to a bearer header (useful in Swagger). */
@@ -35,7 +34,6 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       id: payload.sub,
       email: payload.email,
       role: payload.role,
-      membershipTier: payload.tier,
     };
   }
 }

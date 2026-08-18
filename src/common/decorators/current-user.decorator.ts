@@ -1,11 +1,10 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { Role, MembershipTier } from '../enums';
+import { Role } from '../enums';
 
 export interface AuthUser {
   id: string;
   email: string;
   role: Role;
-  membershipTier: MembershipTier;
 }
 
 /** Resolves to `null` on public routes visited by an anonymous caller. */

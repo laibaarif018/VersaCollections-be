@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums';
 import { UserQueryDto } from './dto/user-query.dto';
-import { UpdateMembershipTierDto, UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthUser } from '../common/decorators/current-user.decorator';
 
@@ -27,10 +28,17 @@ export class UsersController {
     return { ...result, items: result.items.map((u) => u.toJSON()) };
   }
 
-  @Patch(':id/membership')
+  /**
+   * Create an account for someone else — in practice, a second administrator.
+   *
+   * There is no invitation email: SMTP is optional in this deployment, so the
+   * admin sets the first password here and passes it on. The new account signs
+   * in through the ordinary login route and can change it from there.
+   */
+  @Post()
   @Roles(Role.Admin)
-  @ApiOperation({ summary: 'Set a member tier directly (admin)' })
-  async setTier(@Param('id') id: string, @Body() dto: UpdateMembershipTierDto) {
-    return (await this.usersService.setMembershipTier(id, dto.membershipTier)).toJSON();
+  @ApiOperation({ summary: 'Create a user, optionally an admin (admin)' })
+  async create(@Body() dto: CreateUserDto) {
+    return (await this.usersService.createByAdmin(dto)).toJSON();
   }
 }

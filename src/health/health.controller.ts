@@ -9,7 +9,6 @@ import { UsersService } from '../users/users.service';
 import { ProductsService } from '../products/products.service';
 import { CategoriesService } from '../categories/categories.service';
 import { OrdersService } from '../orders/orders.service';
-import { MembershipService } from '../membership/membership.service';
 
 const CONNECTION_STATES: Record<number, string> = {
   0: 'disconnected',
@@ -27,7 +26,6 @@ export class HealthController {
     private readonly productsService: ProductsService,
     private readonly categoriesService: CategoriesService,
     private readonly ordersService: OrdersService,
-    private readonly membershipService: MembershipService,
   ) {}
 
   @Public()
@@ -46,16 +44,13 @@ export class HealthController {
   @Roles(Role.Admin)
   @ApiOperation({ summary: 'Dashboard counters (admin)' })
   async stats() {
-    const [orderStats, products, published, categories, users, members, pendingApplications] =
-      await Promise.all([
-        this.ordersService.stats(),
-        this.productsService.countAll(),
-        this.productsService.countPublished(),
-        this.categoriesService.countAll(),
-        this.usersService.countAll(),
-        this.usersService.countMembers(),
-        this.membershipService.countPending(),
-      ]);
+    const [orderStats, products, published, categories, users] = await Promise.all([
+      this.ordersService.stats(),
+      this.productsService.countAll(),
+      this.productsService.countPublished(),
+      this.categoriesService.countAll(),
+      this.usersService.countAll(),
+    ]);
 
     return {
       ...orderStats,
@@ -63,8 +58,6 @@ export class HealthController {
       publishedProducts: published,
       categories,
       users,
-      members,
-      pendingApplications,
     };
   }
 }

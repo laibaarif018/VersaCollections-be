@@ -1,20 +1,37 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import { resolve } from 'node:path';
 import { AppModule } from './app.module';
+import { UPLOAD_URL_PREFIX } from './uploads/uploads.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api');
   app.use(cookieParser());
 
+  // CORS first: Express runs middleware in registration order, so anything
+  // mounted above this — including the static handler below — would answer
+  // without an Access-Control-Allow-Origin header. That is invisible for an
+  // <img>, which loads cross-origin regardless, but it breaks fetch() and
+  // anything that needs the response readable from the storefront's origin.
   app.enableCors({
     origin: config.getOrThrow<string[]>('app.corsOrigins'),
     credentials: true,
+  });
+
+  // Legacy local media. New uploads go to Cloudinary, but `/uploads/...` URLs
+  // were frozen onto order snapshots (`Order.items[].image`) before the move,
+  // and those must keep resolving — an order is a historical record.
+  app.useStaticAssets(resolve(process.cwd(), config.getOrThrow<string>('app.uploadDir')), {
+    prefix: `${UPLOAD_URL_PREFIX}/`,
+    maxAge: '30d',
+    index: false,
   });
 
   app.useGlobalPipes(
@@ -29,7 +46,7 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Versa Collections API')
     .setDescription(
-      'Luxury e-commerce backend. Money is expressed in minor units (integer cents) throughout.',
+      'Clothing e-commerce backend. Money is expressed in minor units (integer paisa) throughout.',
     )
     .setVersion('0.1.0')
     .addCookieAuth('vc_access')

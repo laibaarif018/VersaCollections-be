@@ -18,11 +18,20 @@ export class CategoriesController {
     return (await this.categoriesService.findAll()).map((c) => c.toJSON());
   }
 
+  // Declared before `:slug` — Nest matches in declaration order, so the
+  // reverse would have "tree" swallowed as a category slug.
+  @Public()
+  @Get('tree')
+  @ApiOperation({ summary: 'List top-level collections, each with its subcategories' })
+  findTree() {
+    return this.categoriesService.findTree();
+  }
+
   @Public()
   @Get(':slug')
-  @ApiOperation({ summary: 'Fetch one collection by slug' })
-  async findBySlug(@Param('slug') slug: string) {
-    return (await this.categoriesService.findBySlug(slug)).toJSON();
+  @ApiOperation({ summary: 'Fetch one collection by slug, with its parent and subcategories' })
+  findBySlug(@Param('slug') slug: string) {
+    return this.categoriesService.findBySlugDetailed(slug);
   }
 
   @Post()

@@ -7,6 +7,7 @@ import { AddToCartDto, UpdateCartItemDto } from './dto/cart.dto';
 import { ProductDocument } from '../products/schemas/product.schema';
 import { Product } from '../products/schemas/product.schema';
 import { ProductStatus } from '../common/enums';
+import { SettingsService } from '../settings/settings.service';
 
 export interface CartOwner {
   userId?: string;
@@ -24,7 +25,6 @@ export interface CartLineView {
   lineTotal: number;
   /** Stock currently on hand — lets the storefront warn before checkout fails. */
   available: number;
-  membershipOnly: boolean;
 }
 
 export interface CartView {
@@ -42,6 +42,7 @@ export class CartService {
     @InjectModel(Cart.name) private readonly cartModel: Model<CartDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
     private readonly config: ConfigService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   private ownerFilter(owner: CartOwner) {
@@ -190,8 +191,9 @@ export class CartService {
    */
   async toView(cart: CartDocument): Promise<CartView> {
     const currency = this.config.getOrThrow<string>('app.currency');
-    const flatShipping = this.config.getOrThrow<number>('app.shippingFlatRate');
-    const freeThreshold = this.config.getOrThrow<number>('app.freeShippingThreshold');
+    // From the database, not ConfigService: the admin changes this fee from the
+    // panel, and ConfigService is constructed with `cache: true`.
+    const deliveryCharge = await this.settingsService.deliveryCharge();
 
     const products = await this.productModel
       .find({ _id: { $in: cart.items.map((i) => i.product) } })
@@ -217,7 +219,6 @@ export class CartService {
         size: item.size ?? null,
         lineTotal: product.price * item.quantity,
         available: product.stock,
-        membershipOnly: product.membershipOnly,
       });
     }
 
@@ -230,7 +231,9 @@ export class CartService {
     }
 
     const subtotal = lines.reduce((sum, l) => sum + l.lineTotal, 0);
-    const shipping = subtotal === 0 || subtotal >= freeThreshold ? 0 : flatShipping;
+    // One flat charge on every order. An empty bag is the only exception —
+    // there is nothing to deliver.
+    const shipping = subtotal === 0 ? 0 : deliveryCharge;
 
     return {
       items: lines,

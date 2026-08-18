@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsOptional,
@@ -45,7 +46,36 @@ export class CreateOrderDto {
   note?: string;
 }
 
+export class MarkDeliveryPaymentDto {
+  @ApiProperty({ description: 'True once the advance delivery charge has been received' })
+  @IsBoolean()
+  paid!: boolean;
+
+  @ApiPropertyOptional({ description: 'Transaction id or reconciliation note', example: 'TID 8842190' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  reference?: string;
+}
+
 export class UpdateOrderStatusDto {
+  /**
+   * Only read when moving to `shipped`. Optional so a hand-delivered parcel
+   * does not need an invented tracking number; the email omits whatever is
+   * missing rather than printing an empty row.
+   */
+  @ApiPropertyOptional({ description: 'Courier, e.g. TCS or Leopards', example: 'TCS' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  courier?: string;
+
+  @ApiPropertyOptional({ example: '1234567890' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  trackingNumber?: string;
+
   @ApiProperty({ enum: OrderStatus })
   @IsEnum(OrderStatus)
   status!: OrderStatus;

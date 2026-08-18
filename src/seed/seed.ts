@@ -30,12 +30,26 @@ async function run() {
   const UserModel = mongoose.model('User', UserSchema);
 
   // --- Categories -----------------------------------------------------------
+  // Two passes: parents must exist before a subcategory can point at one.
+  // CATEGORIES is ordered top-level-first, but sorting makes that explicit
+  // rather than a rule someone has to remember when editing the data file.
   const categoryIdBySlug = new Map<string, mongoose.Types.ObjectId>();
-  for (const category of CATEGORIES) {
+  const ordered = [
+    ...CATEGORIES.filter((c) => !c.parentSlug),
+    ...CATEGORIES.filter((c) => c.parentSlug),
+  ];
+
+  for (const { parentSlug, ...category } of ordered) {
+    let parent: mongoose.Types.ObjectId | null = null;
+    if (parentSlug) {
+      parent = categoryIdBySlug.get(parentSlug) ?? null;
+      if (!parent) throw new Error(`Unknown parent category slug "${parentSlug}"`);
+    }
+
     const doc = await CategoryModel.findOneAndUpdate(
       { slug: category.slug },
-      { $set: category },
-      { new: true, upsert: true },
+      { $set: { ...category, parent } },
+      { returnDocument: 'after', upsert: true },
     ).exec();
     categoryIdBySlug.set(category.slug, doc._id as mongoose.Types.ObjectId);
   }
@@ -46,7 +60,7 @@ async function run() {
     const categoryId = categoryIdBySlug.get(product.categorySlug);
     if (!categoryId) throw new Error(`Unknown category slug "${product.categorySlug}"`);
 
-    const { categorySlug: _ignored, image, imageAlt, ...rest } = product;
+    const { categorySlug: _ignored, ...rest } = product;
     await ProductModel.findOneAndUpdate(
       { slug: product.slug },
       {
@@ -55,13 +69,11 @@ async function run() {
           compareAtPrice: product.compareAtPrice ?? null,
           isFeatured: product.isFeatured ?? false,
           isExclusive: product.isExclusive ?? false,
-          membershipOnly: product.membershipOnly ?? false,
           category: categoryId,
-          currency: 'USD',
-          images: [{ url: image, alt: imageAlt }],
+          currency: 'PKR',
         },
       },
-      { new: true, upsert: true },
+      { returnDocument: 'after', upsert: true },
     ).exec();
   }
   console.log(`Products upserted: ${PRODUCTS.length}`);
@@ -70,11 +82,8 @@ async function run() {
   for (const user of SEED_USERS) {
     const existing = await UserModel.findOne({ email: user.email }).exec();
     if (existing) {
-      // Refresh the role/tier but leave a changed password alone.
-      await UserModel.updateOne(
-        { _id: existing._id },
-        { $set: { role: user.role, membershipTier: user.membershipTier } },
-      ).exec();
+      // Refresh the role but leave a changed password alone.
+      await UserModel.updateOne({ _id: existing._id }, { $set: { role: user.role } }).exec();
       continue;
     }
     await UserModel.create({
@@ -83,7 +92,6 @@ async function run() {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
-      membershipTier: user.membershipTier,
     });
   }
   console.log(`Users upserted: ${SEED_USERS.length}`);
