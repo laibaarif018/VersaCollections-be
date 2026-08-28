@@ -42,19 +42,33 @@ export interface AppConfig {
   };
   /** Public storefront origin, used to link customers back to their order. */
   storefrontUrl: string;
+  /**
+   * Gates `/api/docs` behind HTTP Basic Auth. Either being unset disables
+   * Swagger entirely — it never falls back to a guessable default, unlike
+   * the JWT secrets above, because there's no boot-time check forcing these
+   * to be set before a deploy.
+   */
+  swagger: {
+    user: string;
+    password: string;
+  };
 }
 
 export default (): { app: AppConfig } => ({
   app: {
     port: parseInt(process.env.PORT ?? '4000', 10),
     mongoUri: process.env.MONGODB_URI ?? '',
-    corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:3000,http://localhost:3001')
+    corsOrigins: (
+      process.env.CORS_ORIGINS ?? 'http://localhost:3000,http://localhost:3001'
+    )
       .split(',')
       .map((o) => o.trim())
       .filter(Boolean),
     jwt: {
-      accessSecret: process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret-change-me',
-      refreshSecret: process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret-change-me',
+      accessSecret:
+        process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret-change-me',
+      refreshSecret:
+        process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret-change-me',
       accessTtl: process.env.JWT_ACCESS_TTL ?? '15m',
       refreshTtl: process.env.JWT_REFRESH_TTL ?? '7d',
     },
@@ -82,6 +96,12 @@ export default (): { app: AppConfig } => ({
       from: process.env.MAIL_FROM || process.env.SMTP_USER || '',
       replyTo: process.env.MAIL_REPLY_TO ?? '',
     },
-    storefrontUrl: (process.env.STOREFRONT_URL ?? 'http://localhost:3000').replace(/\/$/, ''),
+    storefrontUrl: (
+      process.env.STOREFRONT_URL ?? 'http://localhost:3000'
+    ).replace(/\/$/, ''),
+    swagger: {
+      user: process.env.SWAGGER_USER ?? '',
+      password: process.env.SWAGGER_PASSWORD ?? '',
+    },
   },
 });

@@ -1,11 +1,23 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { QueryFilter, Model, PopulateOptions, SortOrder, Types } from 'mongoose';
+import {
+  QueryFilter,
+  Model,
+  PopulateOptions,
+  SortOrder,
+  Types,
+} from 'mongoose';
 import { Product, ProductDocument } from './schemas/product.schema';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
 import { ProductQueryDto, ProductSort } from './dto/product-query.dto';
 import { Paginated, paginate } from '../common/dto/pagination.dto';
 import { ProductStatus } from '../common/enums';
+import { escapeRegExp } from '../common/regex';
 import { CategoriesService } from '../categories/categories.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { productFolder } from '../uploads/folders';
@@ -14,7 +26,10 @@ import { productFolder } from '../uploads/folders';
  * Categories nest one level, so a product's own category is not enough to draw
  * a breadcrumb — "Kurtis" needs "Women" above it. Every read populates both.
  */
-const CATEGORY_POPULATE: PopulateOptions = { path: 'category', populate: { path: 'parent' } };
+const CATEGORY_POPULATE: PopulateOptions = {
+  path: 'category',
+  populate: { path: 'parent' },
+};
 
 const SORTS: Record<ProductSort, Record<string, SortOrder>> = {
   [ProductSort.Newest]: { createdAt: -1 },
@@ -28,7 +43,8 @@ export class ProductsService {
   private readonly logger = new Logger(ProductsService.name);
 
   constructor(
-    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
+    @InjectModel(Product.name)
+    private readonly productModel: Model<ProductDocument>,
     private readonly categoriesService: CategoriesService,
     private readonly uploadsService: UploadsService,
   ) {}
@@ -37,7 +53,10 @@ export class ProductsService {
    * @param includeUnpublished admin listings see drafts and archived items;
    *   storefront requests are pinned to published only.
    */
-  async find(query: ProductQueryDto, includeUnpublished = false): Promise<Paginated<ProductDocument>> {
+  async find(
+    query: ProductQueryDto,
+    includeUnpublished = false,
+  ): Promise<Paginated<ProductDocument>> {
     const filter: QueryFilter<ProductDocument> = {};
 
     if (includeUnpublished) {
@@ -50,13 +69,15 @@ export class ProductsService {
       const category = await this.categoriesService.findBySlug(query.category);
       // A top-level collection lists everything beneath it too, so "Women"
       // shows the pieces filed directly under it *and* those under "Kurtis".
-      filter.category = { $in: await this.categoriesService.descendantIds(category) };
+      filter.category = {
+        $in: await this.categoriesService.descendantIds(category),
+      };
     }
     if (query.line) filter.line = query.line;
     if (query.tag) filter.tags = query.tag;
     if (query.featured !== undefined) filter.isFeatured = query.featured;
     if (query.search) {
-      const rx = new RegExp(query.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const rx = new RegExp(escapeRegExp(query.search), 'i');
       filter.$or = [{ name: rx }, { description: rx }, { line: rx }];
     }
 
@@ -74,24 +95,34 @@ export class ProductsService {
     return paginate(items, total, query.page, query.limit);
   }
 
-  async findBySlug(slug: string, includeUnpublished = false): Promise<ProductDocument> {
+  async findBySlug(
+    slug: string,
+    includeUnpublished = false,
+  ): Promise<ProductDocument> {
     const filter: QueryFilter<ProductDocument> = { slug: slug.toLowerCase() };
     if (!includeUnpublished) filter.status = ProductStatus.Published;
 
-    const product = await this.productModel.findOne(filter).populate(CATEGORY_POPULATE).exec();
+    const product = await this.productModel
+      .findOne(filter)
+      .populate(CATEGORY_POPULATE)
+      .exec();
     if (!product) throw new NotFoundException(`No product with slug "${slug}"`);
     return product;
   }
 
   async findById(id: string): Promise<ProductDocument> {
-    const product = await this.productModel.findById(id).populate(CATEGORY_POPULATE).exec();
+    const product = await this.productModel
+      .findById(id)
+      .populate(CATEGORY_POPULATE)
+      .exec();
     if (!product) throw new NotFoundException('Product not found');
     return product;
   }
 
   async create(dto: CreateProductDto): Promise<ProductDocument> {
     const clash = await this.productModel.findOne({ slug: dto.slug }).exec();
-    if (clash) throw new ConflictException(`Slug "${dto.slug}" is already in use`);
+    if (clash)
+      throw new ConflictException(`Slug "${dto.slug}" is already in use`);
     // Surfaces a clear 404 rather than saving a product pointing at nothing.
     await this.categoriesService.findById(dto.category);
 
@@ -109,8 +140,11 @@ export class ProductsService {
 
   async update(id: string, dto: UpdateProductDto): Promise<ProductDocument> {
     if (dto.slug) {
-      const clash = await this.productModel.findOne({ slug: dto.slug, _id: { $ne: id } }).exec();
-      if (clash) throw new ConflictException(`Slug "${dto.slug}" is already in use`);
+      const clash = await this.productModel
+        .findOne({ slug: dto.slug, _id: { $ne: id } })
+        .exec();
+      if (clash)
+        throw new ConflictException(`Slug "${dto.slug}" is already in use`);
     }
     if (dto.category) await this.categoriesService.findById(dto.category);
 
@@ -194,7 +228,10 @@ export class ProductsService {
    * check-and-decrement a single atomic operation, so two shoppers racing for
    * the last piece cannot both win.
    */
-  async decrementStock(productId: Types.ObjectId | string, qty: number): Promise<boolean> {
+  async decrementStock(
+    productId: Types.ObjectId | string,
+    qty: number,
+  ): Promise<boolean> {
     const result = await this.productModel
       .findOneAndUpdate(
         { _id: productId, stock: { $gte: qty } },
@@ -205,8 +242,13 @@ export class ProductsService {
     return result !== null;
   }
 
-  async incrementStock(productId: Types.ObjectId | string, qty: number): Promise<void> {
-    await this.productModel.findByIdAndUpdate(productId, { $inc: { stock: qty } }).exec();
+  async incrementStock(
+    productId: Types.ObjectId | string,
+    qty: number,
+  ): Promise<void> {
+    await this.productModel
+      .findByIdAndUpdate(productId, { $inc: { stock: qty } })
+      .exec();
   }
 
   countAll(): Promise<number> {
@@ -214,6 +256,8 @@ export class ProductsService {
   }
 
   countPublished(): Promise<number> {
-    return this.productModel.countDocuments({ status: ProductStatus.Published }).exec();
+    return this.productModel
+      .countDocuments({ status: ProductStatus.Published })
+      .exec();
   }
 }

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsInt,
   IsMongoId,
   IsOptional,
@@ -56,6 +57,14 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsMongoId()
   parent?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Whether this category is shown on the public storefront',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 export class UpdateCategoryDto extends PartialType(CreateCategoryDto) {}

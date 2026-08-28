@@ -35,6 +35,15 @@ export class Category {
   /** Controls the order categories appear in storefront navigation. */
   @Prop({ default: 0 })
   sortOrder!: number;
+
+  /**
+   * Whether this category is shown on the public storefront (homepage tiles,
+   * nav, footer, /collections index). Admin tooling always sees every
+   * category regardless of this flag — it only gates the public-facing
+   * pages, so a collection can be prepped with products before it launches.
+   */
+  @Prop({ default: true })
+  isActive!: boolean;
 }
 
 export const CategorySchema = SchemaFactory.createForClass(Category);

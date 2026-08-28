@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { QueryFilter, Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
@@ -6,12 +10,15 @@ import { createHash } from 'node:crypto';
 import { User, UserDocument } from './schemas/user.schema';
 import { Role } from '../common/enums';
 import { Paginated, paginate } from '../common/dto/pagination.dto';
+import { escapeRegExp } from '../common/regex';
 
 const BCRYPT_ROUNDS = 12;
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private readonly userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+  ) {}
 
   hashSecret(secret: string): Promise<string> {
     return bcrypt.hash(secret, BCRYPT_ROUNDS);
@@ -65,7 +72,8 @@ export class UsersService {
     role?: Role;
   }): Promise<UserDocument> {
     const existing = await this.findByEmail(input.email);
-    if (existing) throw new ConflictException('An account with that email already exists');
+    if (existing)
+      throw new ConflictException('An account with that email already exists');
     return this.create(input);
   }
 
@@ -83,7 +91,11 @@ export class UsersService {
   }
 
   /** Stores the hashed one-time code, replacing any previous one. */
-  async setPasswordCode(userId: string, code: string, expiresAt: Date): Promise<void> {
+  async setPasswordCode(
+    userId: string,
+    code: string,
+    expiresAt: Date,
+  ): Promise<void> {
     await this.userModel
       .findByIdAndUpdate(userId, {
         passwordCodeHash: await this.hashSecret(code),
@@ -108,7 +120,11 @@ export class UsersService {
   /** @returns the attempt count after this one, so the caller can cap it. */
   async recordPasswordCodeAttempt(userId: string): Promise<number> {
     const user = await this.userModel
-      .findByIdAndUpdate(userId, { $inc: { passwordCodeAttempts: 1 } }, { returnDocument: 'after' })
+      .findByIdAndUpdate(
+        userId,
+        { $inc: { passwordCodeAttempts: 1 } },
+        { returnDocument: 'after' },
+      )
       .exec();
     return user?.passwordCodeAttempts ?? 0;
   }
@@ -117,12 +133,16 @@ export class UsersService {
   async setEmail(userId: string, email: string): Promise<UserDocument> {
     const normalised = email.toLowerCase().trim();
     const existing = await this.findByEmail(normalised);
-    if (existing && (existing.id as string) !== userId) {
+    if (existing && existing.id !== userId) {
       throw new ConflictException('An account with that email already exists');
     }
 
     const user = await this.userModel
-      .findByIdAndUpdate(userId, { email: normalised }, { returnDocument: 'after' })
+      .findByIdAndUpdate(
+        userId,
+        { email: normalised },
+        { returnDocument: 'after' },
+      )
       .exec();
     if (!user) throw new NotFoundException('User not found');
     return user;
@@ -144,7 +164,10 @@ export class UsersService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  async setRefreshTokenHash(userId: string, refreshToken: string | null): Promise<void> {
+  async setRefreshTokenHash(
+    userId: string,
+    refreshToken: string | null,
+  ): Promise<void> {
     await this.userModel
       .findByIdAndUpdate(userId, {
         refreshTokenHash: refreshToken
@@ -163,7 +186,9 @@ export class UsersService {
     userId: string,
     input: { firstName?: string; lastName?: string },
   ): Promise<UserDocument> {
-    const user = await this.userModel.findByIdAndUpdate(userId, input, { returnDocument: 'after' }).exec();
+    const user = await this.userModel
+      .findByIdAndUpdate(userId, input, { returnDocument: 'after' })
+      .exec();
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
@@ -177,7 +202,7 @@ export class UsersService {
     const filter: QueryFilter<UserDocument> = {};
     if (params.role) filter.role = params.role;
     if (params.search) {
-      const rx = new RegExp(params.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const rx = new RegExp(escapeRegExp(params.search), 'i');
       filter.$or = [{ email: rx }, { firstName: rx }, { lastName: rx }];
     }
 

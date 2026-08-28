@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { QueryFilter, Model, Types } from 'mongoose';
@@ -9,8 +14,13 @@ import { CreateOrderDto, OrderQueryDto } from './dto/order.dto';
 import { CartOwner, CartService } from '../cart/cart.service';
 import { ProductsService } from '../products/products.service';
 import { OrderNotifierService } from './order-notifier.service';
-import { OrderEmailKind, ORDER_STATUS_TRANSITIONS, OrderStatus } from '../common/enums';
+import {
+  OrderEmailKind,
+  ORDER_STATUS_TRANSITIONS,
+  OrderStatus,
+} from '../common/enums';
 import { Paginated, paginate } from '../common/dto/pagination.dto';
+import { escapeRegExp } from '../common/regex';
 
 /**
  * Which status change tells the customer something. Delivered and cancelled
@@ -28,7 +38,8 @@ export class OrdersService {
 
   constructor(
     @InjectModel(Order.name) private readonly orderModel: Model<OrderDocument>,
-    @InjectModel(Counter.name) private readonly counterModel: Model<CounterDocument>,
+    @InjectModel(Counter.name)
+    private readonly counterModel: Model<CounterDocument>,
     private readonly cartService: CartService,
     private readonly productsService: ProductsService,
     private readonly notifier: OrderNotifierService,
@@ -37,7 +48,11 @@ export class OrdersService {
 
   private async nextOrderNumber(): Promise<string> {
     const counter = await this.counterModel
-      .findOneAndUpdate({ key: 'order' }, { $inc: { value: 1 } }, { returnDocument: 'after', upsert: true })
+      .findOneAndUpdate(
+        { key: 'order' },
+        { $inc: { value: 1 } },
+        { returnDocument: 'after', upsert: true },
+      )
       .exec();
     return `VC-${String(counter.value).padStart(5, '0')}`;
   }
@@ -52,20 +67,32 @@ export class OrdersService {
    * inventory. (Mongo transactions would be tidier but require a replica set,
    * which a bare Atlas free tier does not guarantee.)
    */
-  async createFromCart(owner: CartOwner, dto: CreateOrderDto): Promise<OrderDocument> {
+  async createFromCart(
+    owner: CartOwner,
+    dto: CreateOrderDto,
+  ): Promise<OrderDocument> {
     const cart = await this.cartService.get(owner);
-    if (cart.items.length === 0) throw new BadRequestException('Your bag is empty');
+    if (cart.items.length === 0)
+      throw new BadRequestException('Your bag is empty');
 
     const taken: { productId: string; quantity: number }[] = [];
     try {
       for (const line of cart.items) {
-        const ok = await this.productsService.decrementStock(line.productId, line.quantity);
-        if (!ok) throw new BadRequestException(`${line.name} is no longer available in that quantity`);
+        const ok = await this.productsService.decrementStock(
+          line.productId,
+          line.quantity,
+        );
+        if (!ok)
+          throw new BadRequestException(
+            `${line.name} is no longer available in that quantity`,
+          );
         taken.push({ productId: line.productId, quantity: line.quantity });
       }
     } catch (error) {
       await Promise.all(
-        taken.map((t) => this.productsService.incrementStock(t.productId, t.quantity)),
+        taken.map((t) =>
+          this.productsService.incrementStock(t.productId, t.quantity),
+        ),
       );
       throw error;
     }
@@ -109,8 +136,13 @@ export class OrdersService {
     return order;
   }
 
-  async findMine(userId: string, query: OrderQueryDto): Promise<Paginated<OrderDocument>> {
-    const filter: QueryFilter<OrderDocument> = { user: new Types.ObjectId(userId) };
+  async findMine(
+    userId: string,
+    query: OrderQueryDto,
+  ): Promise<Paginated<OrderDocument>> {
+    const filter: QueryFilter<OrderDocument> = {
+      user: new Types.ObjectId(userId),
+    };
     if (query.status) filter.status = query.status;
     return this.paginateOrders(filter, query);
   }
@@ -119,7 +151,7 @@ export class OrdersService {
     const filter: QueryFilter<OrderDocument> = {};
     if (query.status) filter.status = query.status;
     if (query.search) {
-      const rx = new RegExp(query.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const rx = new RegExp(escapeRegExp(query.search), 'i');
       filter.$or = [{ orderNumber: rx }, { email: rx }];
     }
     return this.paginateOrders(filter, query);
@@ -142,10 +174,16 @@ export class OrdersService {
   }
 
   /** Guest orders placed from this browser and not yet claimed by an account. */
-  async findForSession(sessionId: string, query: OrderQueryDto): Promise<Paginated<OrderDocument>> {
+  async findForSession(
+    sessionId: string,
+    query: OrderQueryDto,
+  ): Promise<Paginated<OrderDocument>> {
     // `user: null` matters — once an order is claimed it must drop off the guest
     // list, or the next person to use this browser would still see it.
-    const filter: QueryFilter<OrderDocument> = { guestSessionId: sessionId, user: null };
+    const filter: QueryFilter<OrderDocument> = {
+      guestSessionId: sessionId,
+      user: null,
+    };
     if (query.status) filter.status = query.status;
     return this.paginateOrders(filter, query);
   }
@@ -167,7 +205,11 @@ export class OrdersService {
    * A mismatch returns the same 404 as a missing order. Never a "wrong token"
    * message, which would confirm the id exists and invite guessing.
    */
-  async findOneForGuest(id: string, token?: string, sessionId?: string): Promise<OrderDocument> {
+  async findOneForGuest(
+    id: string,
+    token?: string,
+    sessionId?: string,
+  ): Promise<OrderDocument> {
     const or: QueryFilter<OrderDocument>[] = [];
     if (token) or.push({ accessToken: token });
     if (sessionId) or.push({ guestSessionId: sessionId, user: null });
@@ -188,7 +230,11 @@ export class OrdersService {
    * as strong as the sign-up flow. Add email verification before this carries
    * anything sensitive.
    */
-  async claimForUser(userId: string, email: string, sessionId?: string): Promise<number> {
+  async claimForUser(
+    userId: string,
+    email: string,
+    sessionId?: string,
+  ): Promise<number> {
     const or: QueryFilter<OrderDocument>[] = [{ email: email.toLowerCase() }];
     if (sessionId) or.push({ guestSessionId: sessionId });
 
@@ -200,7 +246,9 @@ export class OrdersService {
       .exec();
 
     if (result.modifiedCount > 0) {
-      this.logger.log(`Claimed ${result.modifiedCount} guest order(s) for user ${userId}`);
+      this.logger.log(
+        `Claimed ${result.modifiedCount} guest order(s) for user ${userId}`,
+      );
     }
     return result.modifiedCount;
   }
@@ -261,7 +309,11 @@ export class OrdersService {
     // Nothing ships before the delivery charge is in. The `shipping > 0` clause
     // matters: with the charge set to zero there is nothing to prepay, and the
     // order must still be confirmable.
-    if (next === OrderStatus.Confirmed && order.shipping > 0 && !order.deliveryPaid) {
+    if (
+      next === OrderStatus.Confirmed &&
+      order.shipping > 0 &&
+      !order.deliveryPaid
+    ) {
       throw new BadRequestException(
         'The delivery charge has not been paid yet. Mark it received before confirming this order.',
       );
@@ -278,13 +330,16 @@ export class OrdersService {
 
     if (next === OrderStatus.Cancelled && !order.stockReleased) {
       await Promise.all(
-        order.items.map((item) => this.productsService.incrementStock(item.product, item.quantity)),
+        order.items.map((item) =>
+          this.productsService.incrementStock(item.product, item.quantity),
+        ),
       );
       order.stockReleased = true;
     }
 
     if (next === OrderStatus.Shipped && dispatch) {
-      if (dispatch.courier !== undefined) order.courier = dispatch.courier.trim();
+      if (dispatch.courier !== undefined)
+        order.courier = dispatch.courier.trim();
       if (dispatch.trackingNumber !== undefined) {
         order.trackingNumber = dispatch.trackingNumber.trim();
       }
@@ -302,7 +357,10 @@ export class OrdersService {
   }
 
   /** Re-sends one of the transactional emails, for when a customer never got it. */
-  async resendEmail(id: string, kind: OrderEmailKind): Promise<{ sent: boolean }> {
+  async resendEmail(
+    id: string,
+    kind: OrderEmailKind,
+  ): Promise<{ sent: boolean }> {
     const order = await this.findOne(id);
     return { sent: await this.notifier.notify(order, kind) };
   }

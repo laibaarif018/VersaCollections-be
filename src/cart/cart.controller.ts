@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { CartOwner, CartService } from './cart.service';
@@ -7,6 +18,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthUser } from '../common/decorators/current-user.decorator';
 import { ensureSessionId } from '../auth/cookies';
+import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 
 /**
  * Every route is `@Public()` because guests must be able to build a bag — the
@@ -48,25 +60,33 @@ export class CartController {
   @Patch('items/:productId')
   @ApiOperation({ summary: 'Change a line quantity (0 removes it)' })
   async update(
-    @Param('productId') productId: string,
+    @Param('productId', ParseObjectIdPipe) productId: string,
     @Body() dto: UpdateCartItemDto,
     @CurrentUser() user: AuthUser | null,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.cartService.updateItem(this.owner(user, req, res), productId, dto);
+    return this.cartService.updateItem(
+      this.owner(user, req, res),
+      productId,
+      dto,
+    );
   }
 
   @Delete('items/:productId')
   @ApiOperation({ summary: 'Remove a line from the bag' })
   async remove(
-    @Param('productId') productId: string,
+    @Param('productId', ParseObjectIdPipe) productId: string,
     @Query('size') size: string | undefined,
     @CurrentUser() user: AuthUser | null,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.cartService.removeItem(this.owner(user, req, res), productId, size);
+    return this.cartService.removeItem(
+      this.owner(user, req, res),
+      productId,
+      size,
+    );
   }
 
   @Delete()

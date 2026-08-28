@@ -28,6 +28,7 @@ import type { AuthUser } from '../common/decorators/current-user.decorator';
 import { ensureSessionId } from '../auth/cookies';
 import { SESSION_COOKIE } from '../auth/auth.constants';
 import type { CartOwner } from '../cart/cart.service';
+import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 
 @ApiTags('orders')
 @Controller('orders')
@@ -49,15 +50,23 @@ export class OrdersController {
    */
   @Public()
   @Post()
-  @ApiOperation({ summary: 'Place an order from the current bag (guest or signed in)' })
+  @ApiOperation({
+    summary: 'Place an order from the current bag (guest or signed in)',
+  })
   async create(
     @CurrentUser() user: AuthUser | null,
     @Body() dto: CreateOrderDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const order = await this.ordersService.createFromCart(this.owner(user, req, res), dto);
-    return { ...order.toJSON(), accessToken: user ? undefined : order.accessToken };
+    const order = await this.ordersService.createFromCart(
+      this.owner(user, req, res),
+      dto,
+    );
+    return {
+      ...order.toJSON(),
+      accessToken: user ? undefined : order.accessToken,
+    };
   }
 
   /** Guest orders placed from this browser, for the 30-day life of `vc_sid`. */
@@ -72,7 +81,13 @@ export class OrdersController {
     const sessionId = req.cookies?.[SESSION_COOKIE] as string | undefined;
     // No cookie means no guest orders — do not mint one just to read a list.
     if (user || !sessionId) {
-      return { items: [], total: 0, page: query.page, limit: query.limit, pages: 0 };
+      return {
+        items: [],
+        total: 0,
+        page: query.page,
+        limit: query.limit,
+        pages: 0,
+      };
     }
     const result = await this.ordersService.findForSession(sessionId, query);
     return { ...result, items: result.items.map((o) => o.toJSON()) };
@@ -81,14 +96,18 @@ export class OrdersController {
   /** Guest access to one order, by unguessable token or by the placing browser. */
   @Public()
   @Get('track/:id')
-  @ApiOperation({ summary: 'Read a guest order by access token or placing session' })
+  @ApiOperation({
+    summary: 'Read a guest order by access token or placing session',
+  })
   async track(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Query('token') token: string | undefined,
     @Req() req: Request,
   ) {
     const sessionId = req.cookies?.[SESSION_COOKIE] as string | undefined;
-    return (await this.ordersService.findOneForGuest(id, token, sessionId)).toJSON();
+    return (
+      await this.ordersService.findOneForGuest(id, token, sessionId)
+    ).toJSON();
   }
 
   @Get('mine')
@@ -100,15 +119,11 @@ export class OrdersController {
 
   @Get('mine/:id')
   @ApiOperation({ summary: 'Read one of your own orders' })
-  async findMineOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+  async findMineOne(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseObjectIdPipe) id: string,
+  ) {
     return (await this.ordersService.findOneForUser(id, user.id)).toJSON();
-  }
-
-  @Get('stats')
-  @Roles(Role.Admin)
-  @ApiOperation({ summary: 'Order and revenue totals (admin)' })
-  stats() {
-    return this.ordersService.stats();
   }
 
   @Get()
@@ -122,14 +137,17 @@ export class OrdersController {
   @Get(':id')
   @Roles(Role.Admin)
   @ApiOperation({ summary: 'Read any order (admin)' })
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id', ParseObjectIdPipe) id: string) {
     return (await this.ordersService.findOne(id)).toJSON();
   }
 
   @Patch(':id/status')
   @Roles(Role.Admin)
   @ApiOperation({ summary: 'Advance an order through its lifecycle (admin)' })
-  async updateStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
+  async updateStatus(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
     const order = await this.ordersService.updateStatus(id, dto.status, {
       courier: dto.courier,
       trackingNumber: dto.trackingNumber,
@@ -143,7 +161,10 @@ export class OrdersController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Resend one of the order emails (admin)' })
   @ApiParam({ name: 'kind', enum: OrderEmailKind })
-  async resendEmail(@Param('id') id: string, @Param('kind') kind: string) {
+  async resendEmail(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Param('kind') kind: string,
+  ) {
     if (!Object.values(OrderEmailKind).includes(kind as OrderEmailKind)) {
       throw new BadRequestException(
         `Unknown email "${kind}". Expected one of: ${Object.values(OrderEmailKind).join(', ')}`,
@@ -154,8 +175,15 @@ export class OrdersController {
 
   @Patch(':id/payment')
   @Roles(Role.Admin)
-  @ApiOperation({ summary: 'Record the advance delivery-charge payment (admin)' })
-  async markPayment(@Param('id') id: string, @Body() dto: MarkDeliveryPaymentDto) {
-    return (await this.ordersService.markDeliveryPayment(id, dto.paid, dto.reference)).toJSON();
+  @ApiOperation({
+    summary: 'Record the advance delivery-charge payment (admin)',
+  })
+  async markPayment(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: MarkDeliveryPaymentDto,
+  ) {
+    return (
+      await this.ordersService.markDeliveryPayment(id, dto.paid, dto.reference)
+    ).toJSON();
   }
 }

@@ -54,7 +54,9 @@ export class MailService implements OnModuleInit {
   }
 
   get configured(): boolean {
-    return Boolean(this.settings.host && this.settings.user && this.settings.password);
+    return Boolean(
+      this.settings.host && this.settings.user && this.settings.password,
+    );
   }
 
   onModuleInit(): void {
@@ -67,21 +69,12 @@ export class MailService implements OnModuleInit {
     }
   }
 
-  /** Verifies credentials against the server. Used by the admin health check. */
-  async verify(): Promise<{ ok: boolean; detail: string }> {
-    if (!this.transporter) return { ok: false, detail: 'SMTP is not configured' };
-    try {
-      await this.transporter.verify();
-      return { ok: true, detail: `Connected to ${this.settings.host}:${this.settings.port}` };
-    } catch (error) {
-      return { ok: false, detail: error instanceof Error ? error.message : String(error) };
-    }
-  }
-
   /** @returns whether the message was accepted, never throwing. */
   async send(message: MailMessage): Promise<boolean> {
     if (!this.transporter) {
-      this.logger.warn(`Skipped "${message.subject}" to ${message.to} — SMTP not configured`);
+      this.logger.warn(
+        `Skipped "${message.subject}" to ${message.to} — SMTP not configured`,
+      );
       return false;
     }
 
