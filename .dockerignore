@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+*.tsbuildinfo
+npm-debug.log*
+.env
+.env.*.local
+uploads/*
+!uploads/.gitkeep
+.git
+.vscode
+.idea
