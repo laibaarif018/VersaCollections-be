@@ -17,6 +17,7 @@ RUN npm run build
 FROM node:${NODE_VERSION} AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+COPY .env .env ./
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force

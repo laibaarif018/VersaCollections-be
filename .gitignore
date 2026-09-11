@@ -8,6 +8,7 @@
 # env — .env holds real secrets; .env.example is committed
 .env
 .env.*.local
+.env.prod
 
 # uploaded catalogue images — user content, not source
 /uploads/*
