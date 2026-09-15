@@ -50,7 +50,13 @@ export class Product {
   @Prop({ required: true, trim: true, index: 'text' })
   name!: string;
 
-  @Prop({ required: true, unique: true, lowercase: true, trim: true, index: true })
+  @Prop({
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+    index: true,
+  })
   slug!: string;
 
   @Prop({ required: true, trim: true })
@@ -92,7 +98,12 @@ export class Product {
   @Prop({ default: '', trim: true, index: true })
   fabric!: string;
 
-  @Prop({ type: String, enum: StitchType, default: StitchType.NotApplicable, index: true })
+  @Prop({
+    type: String,
+    enum: StitchType,
+    default: StitchType.NotApplicable,
+    index: true,
+  })
   stitchType!: StitchType;
 
   @Prop({ type: [SizeChartRowSchema], default: [] })
@@ -110,8 +121,25 @@ export class Product {
   @Prop({ type: [String], default: [], index: true })
   tags!: string[];
 
-  @Prop({ type: String, enum: ProductStatus, default: ProductStatus.Published, index: true })
+  @Prop({
+    type: String,
+    enum: ProductStatus,
+    default: ProductStatus.Published,
+    index: true,
+  })
   status!: ProductStatus;
+
+  /**
+   * Denormalized from the `reviews` collection (approved reviews only) so a
+   * listing page can show a rating without aggregating on every request.
+   * Recomputed by `ReviewsService` whenever an approval, edit, or deletion
+   * changes what counts — never written to directly elsewhere.
+   */
+  @Prop({ default: 0, min: 0, max: 5 })
+  ratingAverage!: number;
+
+  @Prop({ default: 0, min: 0 })
+  ratingCount!: number;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

@@ -251,6 +251,20 @@ export class ProductsService {
       .exec();
   }
 
+  /** Called by `ReviewsService` whenever a review's approval status settles. */
+  async updateRating(
+    productId: Types.ObjectId | string,
+    average: number,
+    count: number,
+  ): Promise<void> {
+    await this.productModel
+      .findByIdAndUpdate(productId, {
+        ratingAverage: average,
+        ratingCount: count,
+      })
+      .exec();
+  }
+
   countAll(): Promise<number> {
     return this.productModel.countDocuments().exec();
   }

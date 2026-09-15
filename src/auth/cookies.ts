@@ -17,7 +17,7 @@ function baseOptions(maxAge: number): CookieOptions {
     // Cross-site cookies must be Secure; over plain-http localhost we stay on Lax.
     sameSite: isProd ? 'none' : 'lax',
     secure: isProd,
-    domain: process.env.COOKIE_DOMAIN || undefined,
+    domain: isProd ? process.env.COOKIE_DOMAIN || undefined : undefined,
     path: '/',
     maxAge,
   };

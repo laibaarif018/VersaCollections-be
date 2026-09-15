@@ -18,6 +18,17 @@ export enum ProductStatus {
 }
 
 /**
+ * A submitted review sits `Pending` until an admin moderates it. Only
+ * `Approved` reviews are ever shown on the storefront or counted into a
+ * product's rating average.
+ */
+export enum ReviewStatus {
+  Pending = 'pending',
+  Approved = 'approved',
+  Rejected = 'rejected',
+}
+
+/**
  * How a garment is sold. Standard vocabulary for Pakistani clothing: unstitched
  * fabric is bought by the suit and tailored by the buyer, semi-stitched arrives
  * partly made up. `NotApplicable` covers accessories and anything one-size.
@@ -32,12 +43,20 @@ export enum StitchType {
 /**
  * The transactional emails an order can trigger. Stored on the order once sent,
  * so the admin can see what a customer has received and resend it.
+ *
+ * `PaymentReceived` and `PaymentReminder` are never sent automatically —
+ * `Confirmed` folds the payment thank-you in, since a delivery charge must
+ * already be paid before an order can be confirmed. Both stay available for
+ * an admin to send by hand: reassurance that a payment arrived, or a nudge
+ * that one hasn't.
  */
 export enum OrderEmailKind {
   Placed = 'placed',
   PaymentReceived = 'payment-received',
+  PaymentReminder = 'payment-reminder',
   Confirmed = 'confirmed',
   Dispatched = 'dispatched',
+  Delivered = 'delivered',
 }
 
 /** What a landing-hero slide holds. Images are timed; videos play to the end. */

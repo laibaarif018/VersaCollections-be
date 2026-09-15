@@ -23,13 +23,13 @@ import { Paginated, paginate } from '../common/dto/pagination.dto';
 import { escapeRegExp } from '../common/regex';
 
 /**
- * Which status change tells the customer something. Delivered and cancelled
- * are deliberately silent — a delivered parcel is self-evident, and a
- * cancellation is a conversation, not a template.
+ * Which status change tells the customer something. Cancelled is deliberately
+ * silent — a cancellation is a conversation, not a template.
  */
 const EMAIL_FOR_STATUS: Partial<Record<OrderStatus, OrderEmailKind>> = {
   [OrderStatus.Confirmed]: OrderEmailKind.Confirmed,
   [OrderStatus.Shipped]: OrderEmailKind.Dispatched,
+  [OrderStatus.Delivered]: OrderEmailKind.Delivered,
 };
 
 @Injectable()
@@ -147,9 +147,25 @@ export class OrdersService {
     return this.paginateOrders(filter, query);
   }
 
+  /**
+   * Whether this account has an order containing this product that has
+   * actually reached them. Used to badge a review "Verified purchase" —
+   * deliberately not exposed as a gate on who may review at all.
+   */
+  async hasDelivered(userId: string, productId: string): Promise<boolean> {
+    return this.orderModel
+      .exists({
+        user: new Types.ObjectId(userId),
+        'items.product': new Types.ObjectId(productId),
+        status: OrderStatus.Delivered,
+      })
+      .then((doc) => doc !== null);
+  }
+
   async findAll(query: OrderQueryDto): Promise<Paginated<OrderDocument>> {
     const filter: QueryFilter<OrderDocument> = {};
     if (query.status) filter.status = query.status;
+    if (query.user) filter.user = new Types.ObjectId(query.user);
     if (query.search) {
       const rx = new RegExp(escapeRegExp(query.search), 'i');
       filter.$or = [{ orderNumber: rx }, { email: rx }];
@@ -263,6 +279,11 @@ export class OrdersService {
    * Records that the customer's advance delivery-charge transfer has landed.
    * There is no payment gateway — an admin reconciles the screenshot sent on
    * WhatsApp against their account and flips this by hand.
+   *
+   * No email fires here: the "confirmed" email folds the payment thank-you
+   * in, since a delivery charge must already be paid before an order can be
+   * confirmed. Send "payment received" by hand from the order page if a
+   * customer needs reassurance before that.
    */
   async markDeliveryPayment(
     id: string,
@@ -270,8 +291,6 @@ export class OrdersService {
     reference?: string,
   ): Promise<OrderDocument> {
     const order = await this.findOne(id);
-
-    const wasUnpaid = !order.deliveryPaid;
 
     order.deliveryPaid = paid;
     order.deliveryPaidAt = paid ? new Date() : null;
@@ -281,13 +300,6 @@ export class OrdersService {
     if (!paid && reference === undefined) order.paymentReference = '';
 
     await order.save();
-
-    // Only on the transition into paid — re-saving a reference on an already
-    // paid order must not thank the customer twice.
-    if (paid && wasUnpaid) {
-      await this.notifier.notify(order, OrderEmailKind.PaymentReceived);
-    }
-
     return order;
   }
 
@@ -362,6 +374,17 @@ export class OrdersService {
     kind: OrderEmailKind,
   ): Promise<{ sent: boolean }> {
     const order = await this.findOne(id);
+
+    // A nudge to pay only makes sense while there is something unpaid to nudge.
+    if (
+      kind === OrderEmailKind.PaymentReminder &&
+      (order.shipping === 0 || order.deliveryPaid)
+    ) {
+      throw new BadRequestException(
+        'This order has no unpaid delivery charge — a reminder would not make sense.',
+      );
+    }
+
     return { sent: await this.notifier.notify(order, kind) };
   }
 

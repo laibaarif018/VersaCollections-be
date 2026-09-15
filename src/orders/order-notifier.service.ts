@@ -47,7 +47,10 @@ export class OrderNotifierService {
     }
   }
 
-  private async compose(order: OrderDocument, kind: OrderEmailKind): Promise<OrderEmailData> {
+  private async compose(
+    order: OrderDocument,
+    kind: OrderEmailKind,
+  ): Promise<OrderEmailData> {
     const currency = order.currency;
     const money = (minorUnits: number) => formatMoney(minorUnits, currency);
 
@@ -76,9 +79,12 @@ export class OrderNotifierService {
       orderUrl: this.orderUrl(order),
     };
 
-    // Only the first email carries account details — after that the customer
-    // has already paid, and repeating bank numbers in every message is noise.
-    if (kind === OrderEmailKind.Placed) {
+    // Only the unpaid-facing emails carry account details — once the charge is
+    // in, repeating bank numbers in every message is noise.
+    if (
+      kind === OrderEmailKind.Placed ||
+      kind === OrderEmailKind.PaymentReminder
+    ) {
       const payment = await this.settingsService.paymentView();
       const methods: OrderEmailData['payment'] = {
         instructions: payment.paymentInstructions,
@@ -124,7 +130,17 @@ export class OrderNotifierService {
     }
 
     if (kind === OrderEmailKind.Dispatched) {
-      data.dispatch = { courier: order.courier, trackingNumber: order.trackingNumber };
+      data.dispatch = {
+        courier: order.courier,
+        trackingNumber: order.trackingNumber,
+      };
+    }
+
+    // `updateStatus` refuses to confirm an order with an unpaid delivery
+    // charge, so by the time this fires, `deliveryPaid` is only false when
+    // there was never a charge to pay in the first place.
+    if (kind === OrderEmailKind.Confirmed) {
+      data.paymentAcknowledged = order.shipping > 0 && order.deliveryPaid;
     }
 
     return data;
@@ -137,7 +153,9 @@ export class OrderNotifierService {
   private orderUrl(order: OrderDocument): string {
     const base = this.config.getOrThrow<string>('app.storefrontUrl');
     const path = `${base}/orders/${String(order._id)}`;
-    return order.user ? path : `${path}?t=${encodeURIComponent(order.accessToken)}`;
+    return order.user
+      ? path
+      : `${path}?t=${encodeURIComponent(order.accessToken)}`;
   }
 }
 

@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -8,6 +16,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthUser } from '../common/decorators/current-user.decorator';
+import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 
 @ApiTags('users')
 @Controller('users')
@@ -26,6 +35,13 @@ export class UsersController {
   async list(@Query() query: UserQueryDto) {
     const result = await this.usersService.list(query);
     return { ...result, items: result.items.map((u) => u.toJSON()) };
+  }
+
+  @Get(':id')
+  @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Fetch one user by id (admin)' })
+  async findOne(@Param('id', ParseObjectIdPipe) id: string) {
+    return (await this.usersService.findByIdOrFail(id)).toJSON();
   }
 
   /**

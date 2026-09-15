@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsMongoId,
   IsOptional,
   IsString,
   MaxLength,
@@ -16,9 +17,17 @@ import { OrderStatus } from '../../common/enums';
 export class ShippingAddressDto {
   @ApiProperty() @IsString() @MinLength(2) @MaxLength(120) fullName!: string;
   @ApiProperty() @IsString() @MinLength(2) @MaxLength(160) line1!: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(160) line2?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  line2?: string;
   @ApiProperty() @IsString() @MinLength(1) @MaxLength(80) city!: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(80) region?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  region?: string;
   @ApiProperty() @IsString() @MinLength(2) @MaxLength(20) postalCode!: string;
   @ApiProperty() @IsString() @MinLength(2) @MaxLength(60) country!: string;
 }
@@ -47,11 +56,16 @@ export class CreateOrderDto {
 }
 
 export class MarkDeliveryPaymentDto {
-  @ApiProperty({ description: 'True once the advance delivery charge has been received' })
+  @ApiProperty({
+    description: 'True once the advance delivery charge has been received',
+  })
   @IsBoolean()
   paid!: boolean;
 
-  @ApiPropertyOptional({ description: 'Transaction id or reconciliation note', example: 'TID 8842190' })
+  @ApiPropertyOptional({
+    description: 'Transaction id or reconciliation note',
+    example: 'TID 8842190',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(120)
@@ -64,7 +78,10 @@ export class UpdateOrderStatusDto {
    * does not need an invented tracking number; the email omits whatever is
    * missing rather than printing an empty row.
    */
-  @ApiPropertyOptional({ description: 'Courier, e.g. TCS or Leopards', example: 'TCS' })
+  @ApiPropertyOptional({
+    description: 'Courier, e.g. TCS or Leopards',
+    example: 'TCS',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(80)
@@ -87,9 +104,19 @@ export class OrderQueryDto extends PaginationDto {
   @IsEnum(OrderStatus)
   status?: OrderStatus;
 
-  @ApiPropertyOptional({ description: 'Matches order number or customer email' })
+  @ApiPropertyOptional({
+    description: 'Matches order number or customer email',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(80)
   search?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Admin only — a signed-in customer’s orders, by their account id',
+  })
+  @IsOptional()
+  @IsMongoId()
+  user?: string;
 }
